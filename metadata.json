@@ -1,0 +1,6 @@
+{
+  "name": "FinanceKu",
+  "description": "Pencatat Keuangan Bisnis sederhana untuk membantu pemilik bisnis mencatat pemasukan, pengeluaran, dan transfer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

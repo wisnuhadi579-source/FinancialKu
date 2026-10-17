@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FinanceKu – Pencatat Keuangan Bisnis Modern</title>
+    <meta name="description" content="Pencatat keuangan bisnis sederhana untuk memantau pemasukan, pengeluaran, dan saldo rekening dengan mudah dan profesional." />
+    <meta property="og:title" content="FinanceKu – Pencatat Keuangan Bisnis Modern" />
+    <meta property="og:description" content="Pencatat keuangan bisnis sederhana untuk memantau pemasukan, pengeluaran, dan saldo rekening dengan mudah dan profesional." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "FinanceKu",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "All",
+      "description": "Pencatat keuangan bisnis sederhana untuk memantau pemasukan, pengeluaran, dan saldo rekening dengan mudah dan profesional."
+    }
+    </script>
+    <script>
+      (function() {
+        // Fix for browser extensions attempting to reassign window.fetch when it only has a getter
+        try {
+          var rawFetch = window.fetch;
+          if (rawFetch) {
+            var activeFetch = typeof rawFetch === 'function' ? rawFetch.bind(window) : rawFetch;
+            var descriptor = {
+              configurable: true,
+              enumerable: true,
+              get: function() {
+                return activeFetch;
+              },
+              set: function(val) {
+                activeFetch = val;
+              }
+            };
+            try { Object.defineProperty(window, 'fetch', descriptor); } catch (_) {}
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              try { Object.defineProperty(Window.prototype, 'fetch', descriptor); } catch (_) {}
+            }
+          }
+        } catch (_) {}
+
+        // Suppress unhandled errors originating from external browser extensions
+        window.addEventListener('error', function(event) {
+          var filename = (event && event.filename) || '';
+          var stack = (event && event.error && event.error.stack) || '';
+          if (
+            filename.indexOf('chrome-extension://') !== -1 ||
+            filename.indexOf('moz-extension://') !== -1 ||
+            filename.indexOf('safari-extension://') !== -1 ||
+            stack.indexOf('chrome-extension://') !== -1 ||
+            stack.indexOf('moz-extension://') !== -1 ||
+            stack.indexOf('safari-extension://') !== -1
+          ) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+          }
+        }, true);
+      })();
+    </script>
+  </head>
+  <body class="bg-[#0a0a0a] text-gray-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
