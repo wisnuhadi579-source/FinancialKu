@@ -36,6 +36,8 @@ export type Transaction = {
   description: string | null;
   transfer_to_account_id: string | null;
   status: TransactionStatus;
+  reference_number?: string | null;
+  notes?: string | null;
   created_at: string;
 };
 
@@ -44,4 +46,21 @@ export type TransactionWithDetails = Transaction & {
   account?: Account;
   category?: Category;
   transfer_to_account?: Account;
+};
+
+export type IncomeBreakdownItem = {
+  name: string;
+  percent: number;
+  amount: number;
+  account_id: string;
+  is_manual?: boolean;
+};
+
+export type CreateIncomeBreakdownPayload = {
+  transaction_date: string;
+  business_id: string;
+  category_id: string;
+  total_amount: number;
+  description: string;
+  allocations: IncomeBreakdownItem[];
 };
