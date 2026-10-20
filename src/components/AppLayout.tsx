@@ -33,7 +33,7 @@ export default function AppLayout() {
           <div className="w-8 h-8 bg-amber-500/20 border border-amber-500/50 rounded flex items-center justify-center">
             <span className="text-amber-500 font-black">F</span>
           </div>
-          <span>FINANCE<span className="text-amber-500">KU</span></span>
+          <span>Financial<span className="text-amber-500">KU</span></span>
         </Link>
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -51,9 +51,9 @@ export default function AppLayout() {
         <div className="p-6 hidden md:block">
           <Link to="/" className="text-2xl font-bold tracking-tight text-white flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-500/20 border border-amber-500/50 rounded flex items-center justify-center">
-              <span className="text-amber-500 font-black">F</span>
+              <span className="text-amber-500 font-black">W</span>
             </div>
-            <span>FINANCE<span className="text-amber-500">KU</span></span>
+            <span>Financial<span className="text-amber-500">KU</span></span>
           </Link>
           <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-medium">Pencatat Keuangan Bisnis</p>
         </div>
