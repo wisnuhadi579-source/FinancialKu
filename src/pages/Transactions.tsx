@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   ArrowRightLeft, 
-  Filter, 
   Search, 
   Trash2, 
   X, 
@@ -16,7 +15,8 @@ import {
   Ban,
   RotateCcw,
   PieChart,
-  Info
+  HelpCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   PageHeader, 
@@ -34,7 +34,9 @@ import {
 import {
   getAllocationRulesForBusiness,
   matchAccountForAllocation,
-  calculateDeterministicAllocations
+  calculateDeterministicAllocations,
+  validateAllocationRules,
+  type AllocationRule
 } from '@/src/lib/allocationConfig';
 import type { 
   Business, 
@@ -100,7 +102,6 @@ export default function Transactions() {
       const accs = rawAccs.filter((item, index, self) => index === self.findIndex(t => t.id === item.id));
       const cats = rawCats.filter((item, index, self) => index === self.findIndex(t => t.id === item.id));
 
-      console.log(`[FinanceKu] Metadata loaded: Biz ${biz.length}, Accs ${accs.length}, Cats ${cats.length}`);
       setBusinesses(biz);
       setAccounts(accs);
       setCategories(cats);
@@ -121,7 +122,6 @@ export default function Transactions() {
       // Deduplicate by ID
       const txs = rawTxs.filter((item, index, self) => index === self.findIndex(t => t.id === item.id));
 
-      console.log(`[FinanceKu] Transactions loaded: ${txs.length}`);
       setTransactions(txs);
       setError(null);
     } catch (err: any) {
@@ -148,34 +148,35 @@ export default function Transactions() {
   }, [transactions, businesses, accounts, categories]);
 
   const filteredTransactions = useMemo(() => {
-    let result = enrichedTransactions;
-    
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      result = result.filter(tx => 
-        tx.description?.toLowerCase().includes(search) ||
-        tx.account?.name.toLowerCase().includes(search) ||
-        tx.category?.name.toLowerCase().includes(search) ||
-        tx.business?.name.toLowerCase().includes(search)
-      );
-    }
-
-    if (filters.type !== 'all') {
-      result = result.filter(tx => tx.transaction_type === filters.type);
-    }
-
-    return result;
-  }, [enrichedTransactions, filters.search, filters.type]);
+    return enrichedTransactions.filter(tx => {
+      // Filter Jenis
+      if (filters.type !== 'all' && tx.transaction_type !== filters.type) return false;
+      
+      // Filter Pencarian
+      if (filters.search) {
+        const query = filters.search.toLowerCase();
+        const desc = (tx.description || '').toLowerCase();
+        const cat = (tx.category?.name || '').toLowerCase();
+        const acc = (tx.account?.name || '').toLowerCase();
+        const biz = (tx.business?.name || '').toLowerCase();
+        const ref = (tx.reference_number || '').toLowerCase();
+        const match = desc.includes(query) || cat.includes(query) || acc.includes(query) || biz.includes(query) || ref.includes(query);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [enrichedTransactions, filters]);
 
   const handleCancelTransaction = async (id: string) => {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
 
-    let confirmMsg = 'Batalkan transaksi ini? Transaksi yang dibatalkan tidak akan dihitung dalam laporan.';
+    // Jika transaksi memiliki reference_number dan merupakan bagian dari batch pemasukan
     const sameBatch = tx.reference_number 
-      ? transactions.filter(t => t.reference_number === tx.reference_number && t.id !== tx.id && t.status === 'completed')
+      ? transactions.filter(t => t.reference_number === tx.reference_number && t.id !== id && t.status === 'completed')
       : [];
-      
+
+    let confirmMsg = 'Apakah Anda yakin ingin membatalkan transaksi ini?';
     if (sameBatch.length > 0) {
       confirmMsg = `Transaksi ini adalah bagian dari alokasi pemasukan bersama ${sameBatch.length} akun lainnya (Ref: ${tx.reference_number}). Batalkan seluruh alokasi pemasukan ini?`;
     }
@@ -227,28 +228,28 @@ export default function Transactions() {
               title="Transaksi" 
               content="Halaman Transaksi digunakan untuk mencatat semua uang masuk, uang keluar, dan perpindahan uang antar rekening.
 
-PEMASUKAN: Uang masuk ke bisnis Anda.
-PENGELUARAN: Biaya operasional atau belanja bisnis.
+PEMASUKAN: Uang masuk ke bisnis Anda dengan auto breakdown ke kantong akun sesuai persentase bisnis.
+PENGELUARAN: Biaya operasional atau belanja bisnis dari satu rekening.
 TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung sebagai pemasukan atau pengeluaran bisnis." 
             />
             
             <button 
               onClick={() => setShowForm({ type: 'income', open: true })}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20"
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 cursor-pointer"
             >
               <Plus size={16} />
               Pemasukan
             </button>
             <button 
               onClick={() => setShowForm({ type: 'expense', open: true })}
-              className="flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-900/20"
+              className="flex items-center gap-2 px-6 py-2.5 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg shadow-red-900/20 cursor-pointer"
             >
               <Plus size={16} />
               Pengeluaran
             </button>
             <button 
               onClick={() => setShowForm({ type: 'transfer', open: true })}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 cursor-pointer"
             >
               <ArrowRightLeft size={16} />
               Transfer
@@ -258,7 +259,7 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
       />
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-white/5 p-6 rounded-3xl border border-white/5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
           <input 
@@ -266,16 +267,15 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
             placeholder="Cari transaksi..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="w-full bg-white/[0.02] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white"
+            className="w-full bg-black border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white"
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-white/[0.02] border border-white/10 rounded-xl px-4">
-          <Building size={16} className="text-gray-500" />
+        <div>
           <select 
             value={filters.businessId}
             onChange={(e) => setFilters(prev => ({ ...prev, businessId: e.target.value }))}
-            className="w-full bg-black border-none text-sm text-white focus:ring-0 cursor-pointer py-3 appearance-none"
+            className="w-full bg-black border border-white/10 rounded-xl text-sm text-white focus:ring-0 cursor-pointer py-3 px-4 appearance-none"
           >
             <option key="all-businesses" value="all">Semua Bisnis</option>
             {businesses.map(b => (
@@ -284,12 +284,11 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
           </select>
         </div>
 
-        <div className="flex items-center gap-2 bg-white/[0.02] border border-white/10 rounded-xl px-4">
-          <Filter size={16} className="text-gray-500" />
+        <div>
           <select 
             value={filters.type}
             onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-            className="w-full bg-black border-none text-sm text-white focus:ring-0 cursor-pointer py-3 appearance-none"
+            className="w-full bg-black border border-white/10 rounded-xl text-sm text-white focus:ring-0 cursor-pointer py-3 px-4 appearance-none"
           >
             <option value="all">Semua Jenis</option>
             <option value="income">Pemasukan</option>
@@ -298,28 +297,28 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
           </select>
         </div>
 
-        <div className="flex items-center gap-2 bg-white/[0.02] border border-white/10 rounded-xl px-4">
-          <Calendar size={16} className="text-gray-500" />
+        <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-4">
+          <Calendar size={16} className="text-gray-500 shrink-0" />
           <div className="flex items-center gap-2 w-full">
             <input 
               type="date"
               value={filters.startDate}
               onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full bg-black border-none text-[10px] text-white focus:ring-0 cursor-pointer py-3"
+              className="w-full bg-transparent border-none text-[11px] text-white focus:ring-0 cursor-pointer py-3"
             />
             <span className="text-gray-600">-</span>
             <input 
               type="date"
               value={filters.endDate}
               onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full bg-black border-none text-[10px] text-white focus:ring-0 cursor-pointer py-3"
+              className="w-full bg-transparent border-none text-[11px] text-white focus:ring-0 cursor-pointer py-3"
             />
           </div>
         </div>
 
         <button 
           onClick={() => setFilters({ businessId: 'all', startDate: '', endDate: '', search: '', type: 'all' })}
-          className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+          className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer py-3"
         >
           Reset Filter
         </button>
@@ -333,7 +332,7 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
           action={
             <button 
               onClick={() => setFilters({ businessId: 'all', startDate: '', endDate: '', search: '', type: 'all' })}
-              className="text-amber-500 text-xs font-bold uppercase tracking-widest hover:underline"
+              className="text-amber-500 text-xs font-bold uppercase tracking-widest hover:underline cursor-pointer"
             >
               Reset Filter
             </button>
@@ -427,7 +426,7 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
                       {tx.status === 'completed' && (
                         <button 
                           onClick={() => handleCancelTransaction(tx.id)}
-                          className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
                           title="Batalkan Transaksi"
                         >
                           <Ban size={16} />
@@ -448,7 +447,7 @@ TRANSFER: Pemindahan saldo antar rekening Anda sendiri. Transfer tidak dihitung 
           type={showForm.type!} 
           businesses={businesses} 
           accounts={accounts} 
-          categories={categories}
+          categories={categories} 
           initialBusinessId={filters.businessId}
           onClose={() => setShowForm({ type: null, open: false })}
           onSubmit={handleFormSubmit}
@@ -473,7 +472,7 @@ function TransactionForm({
   categories: Category[];
   initialBusinessId?: string;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
 }) {
   const defaultBizId = (initialBusinessId && initialBusinessId !== 'all')
     ? initialBusinessId
@@ -500,16 +499,50 @@ function TransactionForm({
   };
 
   const [allocations, setAllocations] = useState<AllocationItemState[]>([]);
+  // Prompt banner state when user modified allocations manually and then changes total amount
+  const [showManualConflictPrompt, setShowManualConflictPrompt] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState<number | null>(null);
 
   // Accounts belonging to the currently selected business
   const businessAccounts = useMemo(() => {
     return accounts.filter(a => a.business_id === businessId);
   }, [accounts, businessId]);
 
+  // Selected source account object for expense/transfer
+  const selectedSourceAccount = useMemo(() => {
+    return businessAccounts.find(a => a.id === accountId);
+  }, [businessAccounts, accountId]);
+
+  // Projected balance and deficit state for expense
+  const projectedExpenseBalance = selectedSourceAccount 
+    ? selectedSourceAccount.current_balance - (amount || 0) 
+    : 0;
+  const isExpenseDeficit = Boolean(selectedSourceAccount && amount > 0 && projectedExpenseBalance < 0);
+
+  // Synchronize accountId if businessId changes or account does not belong to business
+  useEffect(() => {
+    if (accountId && !businessAccounts.some(a => a.id === accountId)) {
+      setAccountId('');
+    }
+    if (transferToAccountId && !businessAccounts.some(a => a.id === transferToAccountId)) {
+      setTransferToAccountId('');
+    }
+  }, [businessAccounts, accountId, transferToAccountId]);
+
   // Business object for the currently selected business
   const selectedBusiness = useMemo(() => {
     return businesses.find(b => b.id === businessId);
   }, [businesses, businessId]);
+
+  // Allocation rules for the selected business
+  const currentRules = useMemo(() => {
+    return getAllocationRulesForBusiness(selectedBusiness);
+  }, [selectedBusiness]);
+
+  // Validation of rules (must sum to 100%)
+  const rulesValidation = useMemo(() => {
+    return validateAllocationRules(currentRules);
+  }, [currentRules]);
 
   // Categories filtered by transaction type
   const availableCategories = useMemo(() => {
@@ -523,7 +556,7 @@ function TransactionForm({
   // Initialize or re-initialize allocations whenever businessId changes (or on mount for income)
   useEffect(() => {
     if (type !== 'income') return;
-    const rules = getAllocationRulesForBusiness(selectedBusiness);
+    const rules = currentRules;
     const calculated = calculateDeterministicAllocations(amount, rules);
 
     const items: AllocationItemState[] = rules.map((rule, idx) => {
@@ -540,6 +573,8 @@ function TransactionForm({
     });
 
     setAllocations(items);
+    setShowManualConflictPrompt(false);
+    setPendingAmount(null);
 
     // Auto-select category if empty (prefer "Penjualan" or first available)
     if (!categoryId && availableCategories.length > 0) {
@@ -548,22 +583,64 @@ function TransactionForm({
     }
   }, [businessId, type, selectedBusiness, businessAccounts]);
 
-  // Recalculate automatic allocations when total amount changes
+  const hasManualEdit = useMemo(() => {
+    return allocations.some(a => a.is_manual);
+  }, [allocations]);
+
+  // Total allocated sum across all rows
+  const totalAllocated = useMemo(() => {
+    return allocations.reduce((sum, item) => sum + (item.amount || 0), 0);
+  }, [allocations]);
+
+  const allocationDiff = amount - totalAllocated;
+  const isAllocationBalanced = amount > 0 && allocationDiff === 0;
+  const hasUnmappedAccount = allocations.some(a => a.amount > 0 && !a.account_id);
+  const hasNegativeAllocation = allocations.some(a => a.amount < 0);
+
+  // Handle total amount change
   const handleTotalAmountChange = (newAmount: number) => {
     const validAmount = Math.max(0, Math.floor(newAmount || 0));
     setAmount(validAmount);
 
     if (type === 'income') {
-      const rules = getAllocationRulesForBusiness(selectedBusiness);
-      const calculated = calculateDeterministicAllocations(validAmount, rules);
-      setAllocations(prev => {
-        return prev.map((item, idx) => ({
-          ...item,
-          amount: calculated[idx]?.amount ?? 0,
-          is_manual: false, // Reset manual flag on total amount change
-        }));
-      });
+      if (hasManualEdit) {
+        // Ada alokasi yang sudah diedit manual oleh user
+        // Tampilkan pilihan: 1. Hitung ulang persentase ATAU 2. Pertahankan nominal manual
+        setPendingAmount(validAmount);
+        setShowManualConflictPrompt(true);
+      } else {
+        // Belum ada editan manual -> langsung hitung otomatis
+        const calculated = calculateDeterministicAllocations(validAmount, currentRules);
+        setAllocations(prev => {
+          return prev.map((item, idx) => ({
+            ...item,
+            amount: calculated[idx]?.amount ?? 0,
+            is_manual: false,
+          }));
+        });
+      }
     }
+  };
+
+  // User chooses Option 1: Recalculate based on percentage
+  const handleRecalculateFromPercentage = () => {
+    const targetAmount = pendingAmount !== null ? pendingAmount : amount;
+    const calculated = calculateDeterministicAllocations(targetAmount, currentRules);
+    setAllocations(prev => {
+      return prev.map((item, idx) => ({
+        ...item,
+        amount: calculated[idx]?.amount ?? 0,
+        is_manual: false,
+      }));
+    });
+    setShowManualConflictPrompt(false);
+    setPendingAmount(null);
+  };
+
+  // User chooses Option 2: Keep manual nominals and update diff
+  const handleKeepManualNominals = () => {
+    setShowManualConflictPrompt(false);
+    setPendingAmount(null);
   };
 
   // Manual editing for a specific allocation item
@@ -578,6 +655,8 @@ function TransactionForm({
       };
       return next;
     });
+    // Menghilangkan prompt konflik jika user sedang aktif mengedit baris
+    setShowManualConflictPrompt(false);
   };
 
   // Change target account for an allocation line
@@ -594,8 +673,7 @@ function TransactionForm({
 
   // Reset all allocations back to the automated percentage calculation
   const handleResetAllocations = () => {
-    const rules = getAllocationRulesForBusiness(selectedBusiness);
-    const calculated = calculateDeterministicAllocations(amount, rules);
+    const calculated = calculateDeterministicAllocations(amount, currentRules);
     setAllocations(prev => {
       return prev.map((item, idx) => ({
         ...item,
@@ -603,19 +681,13 @@ function TransactionForm({
         is_manual: false,
       }));
     });
+    setShowManualConflictPrompt(false);
+    setPendingAmount(null);
   };
-
-  // Breakdown Summary & Validation
-  const totalAllocated = useMemo(() => {
-    return allocations.reduce((sum, item) => sum + (item.amount || 0), 0);
-  }, [allocations]);
-
-  const allocationDiff = amount - totalAllocated;
-  const isAllocationBalanced = amount > 0 && allocationDiff === 0;
-  const hasUnmappedAccount = allocations.some(a => a.amount > 0 && !a.account_id);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     
     if (!transactionDate) return alert('Tanggal transaksi wajib diisi.');
     if (!businessId) return alert('Bisnis wajib dipilih.');
@@ -624,6 +696,10 @@ function TransactionForm({
       if (amount <= 0) return alert('Nominal pemasukan harus lebih dari 0.');
       if (!categoryId) return alert('Kategori pemasukan wajib dipilih.');
       
+      if (!rulesValidation.valid) {
+        return alert(`Konfigurasi persentase bisnis belum valid (${rulesValidation.totalPercent}%). Transaksi tidak dapat disimpan.`);
+      }
+
       if (!isAllocationBalanced) {
         if (allocationDiff > 0) {
           return alert(`Total alokasi belum mencapai total pemasukan. Sisa belum dialokasikan: ${formatCurrency(allocationDiff)}.`);
@@ -634,6 +710,10 @@ function TransactionForm({
 
       if (hasUnmappedAccount) {
         return alert('Semua alokasi bernilai lebih dari 0 harus memiliki akun tujuan yang dipilih.');
+      }
+
+      if (hasNegativeAllocation) {
+        return alert('Nominal alokasi tidak boleh bernilai negatif.');
       }
 
       setSubmitting(true);
@@ -657,9 +737,19 @@ function TransactionForm({
         setSubmitting(false);
       }
     } else if (type === 'expense') {
-      if (!accountId) return alert('Akun sumber wajib dipilih.');
+      if (!accountId) return alert('Akun sumber pengeluaran wajib dipilih.');
       if (!categoryId) return alert('Kategori pengeluaran wajib dipilih.');
-      if (amount <= 0) return alert('Nominal pengeluaran harus lebih dari 0.');
+      if (amount <= 0) return alert('Nominal pengeluaran harus berupa angka positif lebih dari 0.');
+
+      // Validasi ketersediaan saldo sebelum menyimpan
+      if (selectedSourceAccount && selectedSourceAccount.current_balance < amount) {
+        const proceed = window.confirm(
+          `Perhatian: Nominal pengeluaran (${formatCurrency(amount)}) melebihi saldo akun "${selectedSourceAccount.name}" saat ini (${formatCurrency(selectedSourceAccount.current_balance)}).\n\n` +
+          `Saldo akhir akun akan menjadi negatif (${formatCurrency(selectedSourceAccount.current_balance - amount)}).\n` +
+          `Apakah Anda yakin ingin tetap menyimpan transaksi pengeluaran ini?`
+        );
+        if (!proceed) return;
+      }
 
       setSubmitting(true);
       try {
@@ -669,7 +759,7 @@ function TransactionForm({
           account_id: accountId,
           category_id: categoryId,
           amount,
-          description,
+          description: description.trim() || null,
           transaction_type: 'expense',
           transfer_to_account_id: null
         });
@@ -719,7 +809,11 @@ function TransactionForm({
             </div>
             Tambah {type === 'income' ? 'Pemasukan (Auto Breakdown)' : type === 'expense' ? 'Pengeluaran' : 'Transfer'}
           </h3>
-          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer">
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-2 text-gray-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+          >
             <X size={20} />
           </button>
         </div>
@@ -785,71 +879,126 @@ function TransactionForm({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  {type === 'expense' ? 'Akun Sumber' : 'Dari Rekening'}
-                </label>
-                <div className="relative">
-                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
-                  <select 
-                    required
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                    className="w-full bg-[#121212] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white appearance-none cursor-pointer"
-                  >
-                    <option key="select-account" value="" disabled>Pilih Akun</option>
-                    {businessAccounts.map(a => (
-                      <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.current_balance)})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {type === 'transfer' ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Ke Rekening</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    {type === 'expense' ? 'Akun Sumber Pengeluaran' : 'Dari Rekening'}
+                  </label>
                   <div className="relative">
                     <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                     <select 
                       required
-                      value={transferToAccountId}
-                      onChange={(e) => setTransferToAccountId(e.target.value)}
+                      value={accountId}
+                      onChange={(e) => setAccountId(e.target.value)}
                       className="w-full bg-[#121212] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white appearance-none cursor-pointer"
                     >
-                      <option value="" disabled>Pilih Akun Tujuan</option>
+                      <option key="select-account" value="" disabled>-- Pilih Akun Sumber --</option>
                       {businessAccounts.map(a => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({formatCurrency(a.current_balance)})
+                        </option>
                       ))}
                     </select>
                   </div>
+                  {businessAccounts.length === 0 && (
+                    <p className="text-[11px] text-amber-400">
+                      ⚠️ Belum ada akun rekening untuk unit bisnis ini. Buat akun di menu Akun & Kas.
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Kategori</label>
-                  <div className="relative">
-                    <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
-                    <select 
-                      required
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                      className="w-full bg-[#121212] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white appearance-none cursor-pointer"
-                    >
-                      <option key="select-category" value="" disabled>Pilih Kategori</option>
-                      {availableCategories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+
+                {type === 'transfer' ? (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Ke Rekening</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                      <select 
+                        required
+                        value={transferToAccountId}
+                        onChange={(e) => setTransferToAccountId(e.target.value)}
+                        className="w-full bg-[#121212] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white appearance-none cursor-pointer"
+                      >
+                        <option value="" disabled>Pilih Akun Tujuan</option>
+                        {businessAccounts.map(a => (
+                          <option key={a.id} value={a.id}>{a.name} ({formatCurrency(a.current_balance)})</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Kategori Pengeluaran</label>
+                    <div className="relative">
+                      <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                      <select 
+                        required
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="w-full bg-[#121212] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-amber-500/50 focus:ring-0 transition-all text-white appearance-none cursor-pointer"
+                      >
+                        <option key="select-category" value="" disabled>-- Pilih Kategori Pengeluaran --</option>
+                        {availableCategories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {availableCategories.length === 0 && (
+                      <p className="text-[11px] text-amber-400">
+                        ⚠️ Belum ada kategori jenis pengeluaran aktif.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Tampilan Status & Validasi Saldo Akun Sumber untuk Pengeluaran */}
+              {type === 'expense' && selectedSourceAccount && (
+                <div className={cn(
+                  "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
+                  isExpenseDeficit 
+                    ? "bg-amber-500/[0.08] border-amber-500/30 text-amber-200" 
+                    : "bg-white/[0.02] border-white/10 text-gray-300"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 flex items-center gap-1.5">
+                      <CreditCard size={13} className="text-gray-500" />
+                      Saldo Akun <strong className="text-white font-medium">{selectedSourceAccount.name}</strong>:
+                    </span>
+                    <span className="font-mono font-bold text-white text-sm">
+                      {formatCurrency(selectedSourceAccount.current_balance)}
+                    </span>
+                  </div>
+
+                  {amount > 0 && (
+                    <div className="flex items-center justify-between pt-1.5 border-t border-white/5">
+                      <span className="text-gray-400">Estimasi Saldo Setelah Pengeluaran:</span>
+                      <span className={cn(
+                        "font-mono font-bold text-sm",
+                        isExpenseDeficit ? "text-red-400" : "text-emerald-400"
+                      )}>
+                        {formatCurrency(projectedExpenseBalance)}
+                      </span>
+                    </div>
+                  )}
+
+                  {isExpenseDeficit && (
+                    <div className="flex items-start gap-2 pt-1 text-[11px] text-amber-400 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                      <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-400" />
+                      <span>
+                        <strong>Peringatan Defisit:</strong> Pengeluaran sebesar {formatCurrency(amount)} melebihi saldo akun saat ini ({formatCurrency(selectedSourceAccount.current_balance)}). Saldo akan berkurang menjadi minus {formatCurrency(Math.abs(projectedExpenseBalance))}.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Nominal Input */}
+          {/* Nominal Utama Input */}
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-              {type === 'income' ? 'Total Nominal Pemasukan (IDR)' : 'Nominal Transaksi (IDR)'}
+              {type === 'income' ? 'Total Nominal Pemasukan Utuh (IDR)' : 'Nominal Transaksi (IDR)'}
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-500 font-bold">Rp</span>
@@ -870,6 +1019,39 @@ function TransactionForm({
             )}
           </div>
 
+          {/* Prompt Dialog ketika Nominal Total Berubah setelah Penyesuaian Manual */}
+          {type === 'income' && showManualConflictPrompt && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle size={18} className="shrink-0 mt-0.5 text-amber-400" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-white">
+                    Nominal total diubah menjadi {formatCurrency(amount)}, sementara Anda telah memiliki alokasi manual.
+                  </p>
+                  <p className="text-[11px] text-amber-200/80">
+                    Pilih opsi penyesuaian yang Anda inginkan:
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleRecalculateFromPercentage}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors cursor-pointer"
+                >
+                  1. Hitung Ulang Berdasarkan Persentase
+                </button>
+                <button
+                  type="button"
+                  onClick={handleKeepManualNominals}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
+                >
+                  2. Pertahankan Nominal Manual & Perbarui Selisih
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Auto Breakdown Section (Hanya untuk Pemasukan) */}
           {type === 'income' && (
             <div className="space-y-4 pt-2">
@@ -877,10 +1059,10 @@ function TransactionForm({
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
                     <PieChart size={16} className="text-amber-500" />
-                    Breakdown Alokasi ({selectedBusiness?.name || 'Bisnis'})
+                    Breakdown Alokasi Otomatis ({selectedBusiness?.name || 'Bisnis'})
                   </h4>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    Otomatis dihitung sesuai persentase bisnis. Nominal dapat disesuaikan manual.
+                    Dihitung otomatis sesuai persentase bisnis. Nominal setiap alokasi dapat diedit secara manual.
                   </p>
                 </div>
                 <button
@@ -890,16 +1072,28 @@ function TransactionForm({
                   title="Kembalikan semua alokasi ke persentase otomatis"
                 >
                   <RotateCcw size={12} />
-                  Reset sesuai persentase
+                  Reset ke Persentase Otomatis
                 </button>
               </div>
+
+              {!rulesValidation.valid && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <span>
+                    Konfigurasi persentase untuk unit bisnis ini tidak berjumlah 100% (total saat ini: {rulesValidation.totalPercent}%). Transaksi tidak dapat disimpan sampai konfigurasi diperbaiki.
+                  </span>
+                </div>
+              )}
 
               {/* Daftar Alokasi */}
               <div className="space-y-3">
                 {allocations.map((item, idx) => (
                   <div 
                     key={item.key}
-                    className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4 group hover:border-amber-500/20 transition-all"
+                    className={cn(
+                      "p-4 bg-white/[0.02] border rounded-2xl space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4 group transition-all",
+                      item.is_manual ? "border-amber-500/30 bg-amber-500/[0.02]" : "border-white/5 hover:border-amber-500/20"
+                    )}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -908,7 +1102,7 @@ function TransactionForm({
                           {item.percent}%
                         </span>
                         {item.is_manual && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-400">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
                             Manual
                           </span>
                         )}
@@ -943,7 +1137,7 @@ function TransactionForm({
                       </div>
                     </div>
 
-                    {/* Input Nominal Alokasi */}
+                    {/* Input Nominal Alokasi Manual */}
                     <div className="w-full sm:w-48 shrink-0">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">Rp</span>
@@ -955,7 +1149,7 @@ function TransactionForm({
                           onChange={(e) => handleAllocationAmountChange(idx, Number(e.target.value))}
                           className={cn(
                             "w-full bg-white/[0.03] border rounded-xl py-2 pl-9 pr-3 text-sm font-mono font-bold text-white focus:ring-0 transition-all tabular-nums text-right",
-                            item.is_manual ? "border-amber-500/50 text-amber-300" : "border-white/10 focus:border-amber-500/50"
+                            item.is_manual ? "border-amber-500/50 text-amber-300 bg-amber-500/5" : "border-white/10 focus:border-amber-500/50"
                           )}
                         />
                       </div>
@@ -988,17 +1182,17 @@ function TransactionForm({
                   {amount === 0 ? (
                     <span className="text-xs text-gray-500 italic">Masukkan nominal total</span>
                   ) : isAllocationBalanced ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
                       <CheckCircle2 size={14} />
                       Alokasi Sesuai (100% - {formatCurrency(amount)})
                     </div>
                   ) : allocationDiff > 0 ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold border border-amber-500/20">
                       <AlertCircle size={14} />
                       Kurang {formatCurrency(allocationDiff)} (Belum dialokasikan)
                     </div>
                   ) : (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold border border-red-500/20">
                       <AlertCircle size={14} />
                       Lebih {formatCurrency(Math.abs(allocationDiff))} (Melebihi total)
                     </div>
@@ -1041,7 +1235,12 @@ function TransactionForm({
             </button>
             <button 
               type="submit"
-              disabled={submitting || (type === 'income' && (!isAllocationBalanced || hasUnmappedAccount))}
+              disabled={
+                submitting || 
+                (type === 'income' && (!isAllocationBalanced || hasUnmappedAccount || !rulesValidation.valid || hasNegativeAllocation)) ||
+                (type === 'expense' && (!accountId || !categoryId || amount <= 0)) ||
+                (type === 'transfer' && (!accountId || !transferToAccountId || accountId === transferToAccountId || amount <= 0))
+              }
               className={cn(
                 "flex-[2] py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all shadow-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
                 type === 'income' ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20" :
