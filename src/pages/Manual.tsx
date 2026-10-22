@@ -266,7 +266,7 @@ function GlobalPosSimulation({
               Simulasi Profit Bersih Tersedia (Rp)
             </label>
             <p className="mt-1 text-xs text-gray-400">
-              Dasar 4 Pos Global adalah <strong>laba bersih yang sudah terealisasi</strong> setelah dikurangi seluruh pengeluaran operasional dan HPP riil.
+              Dasar pembagian 4 Pos Global adalah <strong>Profit Bersih dari akun-akun bernama Profit</strong> sesuai filter bisnis dan periode di menu Laporan. Profit dihitung dari pemasukan akun Profit dikurangi pengeluaran akun Profit; transfer dan transaksi pada akun non-Profit tidak dihitung. Kolom ini hanya simulasi manual, bukan data aktual dari database.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -546,7 +546,7 @@ export default function Manual() {
                   Pemindahan dana antar kantong/rekening dicatat melalui jenis transaksi <strong>Transfer</strong>. Transfer bukan pemasukan baru dan bukan pengeluaran bisnis.
                 </Instruction>
                 <Instruction number={4} title="Pemeriksaan Laporan & Penentuan Profit Bersih">
-                  Buka menu <strong>Laporan</strong> untuk memantau performa per bisnis atau konsolidasi seluruh bisnis. Profit bersih dihitung dari <strong>Total Pemasukan dikurangi Total Pengeluaran Aktual</strong> pada periode tersebut.
+                  Buka menu <strong>Laporan</strong> untuk memantau performa per bisnis atau konsolidasi seluruh bisnis. <strong>Profit Bersih</strong> diambil dari transaksi berstatus selesai pada akun yang namanya mengandung kata <strong>Profit</strong>, sesuai bisnis dan periode yang dipilih. Pemasukan akun Profit menambah nilai profit, sedangkan pengeluaran akun Profit menguranginya. Transfer tidak dihitung sebagai profit. Transaksi pada akun selain Profit tidak masuk ke perhitungan Profit Bersih.
                 </Instruction>
                 <Instruction number={5} title="Distribusi ke 4 Pos Global Pemilik">
                   Setelah profit bersih periode tersebut diketahui dan dana benar-benar tersedia, pemilik dapat membaginya ke dalam <strong>4 Pos Global (Personal 50%, Investment 30%, Rihlah 10%, Sedekah 10%)</strong>.
@@ -561,7 +561,7 @@ export default function Manual() {
                 Hierarki Pembagian Keuangan (Mencegah Double Counting)
               </h4>
               <p className="mt-1 text-xs text-gray-400">
-                Pemisahan tegas antara alokasi operasional bisnis dengan hak profit bersih pemilik.
+                Profit Bersih mengikuti transaksi akun Profit yang selesai, bukan selisih seluruh pemasukan dan pengeluaran semua akun.
               </p>
 
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -628,7 +628,7 @@ export default function Manual() {
                   <BarChart3 size={20} className="mb-2 text-amber-400" />
                   <h4 className="font-semibold text-white">Profit Bersih</h4>
                   <p className="mt-1 text-xs leading-5 text-gray-400">
-                    Selisih pemasukan dikurangi pengeluaran. Menjadi dasar pembagian 4 Pos Global.
+                    Di laporan aktual, dihitung dari pemasukan akun bernama Profit dikurangi pengeluaran pada akun Profit, hanya untuk transaksi selesai dan sesuai filter bisnis serta periode. Transfer dan transaksi pada akun non-Profit tidak dihitung. Nilai inilah yang menjadi dasar pembagian 4 Pos Global.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -652,6 +652,54 @@ export default function Manual() {
               Setiap pemasukan dibagi otomatis menjadi: <strong>Affiliate 20%</strong>, <strong>Kas 10%</strong>, <strong>Profit 70%</strong>, dan <strong>Bagi Hasil 0%</strong> (Total: 100%).
             </Notice>
 
+            {/* Sistem bagi hasil khusus Ayah Sidi */}
+            <section className="overflow-hidden rounded-2xl border border-amber-500/20 bg-black/20">
+              <div className="border-b border-amber-500/20 bg-amber-500/5 p-4 sm:p-5">
+                <h3 className="font-bold text-white">Sistem Bagi Hasil Khusus Ayah Sidi</h3>
+                <p className="mt-1 text-sm leading-6 text-gray-400">
+                  Ketentuan khusus ini hanya berlaku untuk produk Buku Ayah Sidi dan Kelas Privat. Produk Akademi Spiritual lainnya tetap mengikuti aturan standar: Affiliate 20%, Kas 10%, Profit 70%, dan Bagi Hasil 0%.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-[900px] w-full text-left text-sm">
+                  <thead className="bg-white/5 text-xs uppercase tracking-wide text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Produk</th>
+                      <th className="px-4 py-3 font-semibold">Harga Jual</th>
+                      <th className="px-4 py-3 font-semibold">HPP</th>
+                      <th className="px-4 py-3 font-semibold">Affiliate</th>
+                      <th className="px-4 py-3 font-semibold">Kas</th>
+                      <th className="px-4 py-3 font-semibold">Profit</th>
+                      <th className="px-4 py-3 font-semibold">Bagi Hasil</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-gray-300">
+                    <tr>
+                      <td className="px-4 py-4 font-semibold text-white">Buku Ayah Sidi</td>
+                      <td className="whitespace-nowrap px-4 py-4 font-mono text-white">Rp150.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">30% · Rp45.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">20% · Rp30.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">10% · Rp15.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">10% · Rp15.000</td>
+                      <td className="whitespace-nowrap px-4 py-4 font-semibold text-amber-300">30% · Rp45.000</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-4 font-semibold text-white">Kelas Privat</td>
+                      <td className="whitespace-nowrap px-4 py-4 font-mono text-white">Rp300.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">0% · Rp0</td>
+                      <td className="whitespace-nowrap px-4 py-4">20% · Rp60.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">10% · Rp30.000</td>
+                      <td className="whitespace-nowrap px-4 py-4">10% · Rp30.000</td>
+                      <td className="whitespace-nowrap px-4 py-4 font-semibold text-amber-300">60% · Rp180.000</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="border-t border-white/5 px-4 py-3 text-xs leading-5 text-gray-400">
+                Total alokasi setiap produk adalah 100% dari harga jual. Nominal pada tabel merupakan contoh pembagian per satu penjualan sesuai harga yang tercantum.
+              </p>
+            </section>
+
             <div>
               <h3 className="mb-4 font-bold text-white">Alur Operasional Akademi Spiritual</h3>
               <div className="space-y-4">
@@ -659,7 +707,7 @@ export default function Manual() {
                   Buka menu Transaksi &gt; Pemasukan. Pilih <strong>Brand Akademi Spiritual</strong>, akun tujuan, dan nominal omzet. Sistem akan mengkalkulasi porsi Affiliate (20%), Kas (10%), dan Profit (70%).
                 </Instruction>
                 <Instruction number={2} title="Kantong Bagi Hasil (0%)">
-                  Saat ini persentase Bagi Hasil ditetapkan 0% dan dicadangkan jika di masa depan ada investor/partner kerja sama baru tanpa perlu merombak struktur akun.
+                  Untuk produk Akademi Spiritual selain Buku Ayah Sidi dan Kelas Privat, persentase Bagi Hasil standar adalah 0%. Buku Ayah Sidi dan Kelas Privat mengikuti tabel khusus di atas.
                 </Instruction>
                 <Instruction number={3} title="Pencairan Komisi Affiliate">
                   Saat membayar komisi affiliate, catat transaksi melalui <strong>Pengeluaran</strong> dengan akun sumber kantong Affiliate. Jangan memotong dari kas operasional atau profit.
@@ -860,7 +908,7 @@ export default function Manual() {
             1. <strong>Disiplin Transaksi Riil:</strong> Catat mutasi tepat waktu saat uang benar-benar berpindah.<br />
             2. <strong>Pemisahan Entitas:</strong> Jangan mencampuradukkan pengeluaran pribadi dengan operasional bisnis.<br />
             3. <strong>Anti Double Counting:</strong> Alokasi persentase omzet adalah penetapan pagu internal, sedangkan beban riil adalah pengeluaran tunai aktual.<br />
-            4. <strong>4 Pos Global dari Profit Bersih:</strong> Dana Personal, Investasi, Rihlah, dan Sedekah dihitung dari profit bersih yang benar-benar tersedia, bukan dari omzet kotor.
+            4. <strong>4 Pos Global dari Profit Bersih:</strong> Dana Personal, Investment, Rihlah, dan Sedekah dihitung dari Profit Bersih pada akun-akun bernama Profit sesuai bisnis dan periode yang dipilih, bukan dari selisih seluruh pemasukan dan pengeluaran semua akun atau dari omzet kotor.
           </p>
         </div>
       </section>
